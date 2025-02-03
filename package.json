@@ -10,9 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroui/button": "^2.2.10",
+    "@heroui/react": "^2.6.14",
     "@reduxjs/toolkit": "^2.5.1",
     "@tailwindcss/vite": "^4.0.0",
     "axios": "^1.7.9",
+    "framer-motion": "^12.0.6",
     "lucide": "^0.474.0",
     "lucide-react": "^0.474.0",
     "react": "^18.3.1",

@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { MessageCircle, Search, Send, User } from "lucide-react";
-import { getAllChat, getAllFriend, sendMessage } from "../service/chatService";
+import { Ellipsis, MessageCircle, Phone, Search, Send, User, VideoIcon } from "lucide-react";
+import { getAllChat, getAllFriend, sendMessage, userStatusChange } from "../service/chatService";
 import { useAppSelector } from "../../../redux/store";
 import { io } from "socket.io-client";
+import { formatTime } from "../helpers/timeformat";
+import ProfileImageModal from "../components/ImageModal";
+import { Button } from "@heroui/button";
+import { Tooltip } from "@heroui/react";
 
 interface Message {
     id?: string;
@@ -10,6 +14,7 @@ interface Message {
     sender: string;
     time?: string;
     content?: string;
+    sendingTime?: Date;
 }
 
 const Chat = () => {
@@ -18,11 +23,33 @@ const Chat = () => {
     const { user } = useAppSelector(st => st.auth);
     const [allFriends, setAllFriends] = useState([]);
     const [messages, setMessages] = useState<Message[]>([]);
+    console.log(allFriends);
 
     const [newMessage, setNewMessage] = useState("");
     const [currentFriend, setCurrentFriend] = useState<any>({});
     const [socket, setSocket] = useState<any>(null);
 
+    const [prifileImageModal, setProfileImage] = useState({
+        imageUrl: "",
+        isModalOpen: false
+    })
+
+    const handleToggleProfileImge = (url: string) => {
+        interface ProfileImage {
+            imageUrl: string;
+            isModalOpen: boolean;
+        }
+
+        setProfileImage((prev: ProfileImage) => ({
+            ...prev,
+            imageUrl: url,
+            isModalOpen: !prev.isModalOpen
+        }));
+    }
+
+    const [friendStatus, setFriendStatus] = useState({
+        isTypeing: false,
+    })
     // Initialize socket connection
     useEffect(() => {
         const newSocket = io("http://localhost:3000", {
@@ -31,15 +58,16 @@ const Chat = () => {
         setSocket(newSocket);
 
         // Socket event listeners
-        newSocket.on("connect", () => {
-            console.log("Connected to socket server");
+        newSocket.on("connect", async () => {
+            await userStatusChange({ userStatus: true });
         });
 
         newSocket.on("receive_message", (message: Message) => {
+            console.log(message);
             setMessages((prevMessages: any) => [...prevMessages, {
                 text: message.content,
                 sender: "reciver",
-                // time: new Date().toISOString()
+                sendingTime: message.sendingTime || new Date()
             }]);
         });
 
@@ -47,12 +75,15 @@ const Chat = () => {
             // Handle typing indicator
             console.log(`User ${userId} is typing...`);
             // You can add a typing indicator state here
+            setFriendStatus((pre: any) => ({ ...pre, isTypeing: true }));
         });
 
         newSocket.on("user_stop_typing", (userId: string) => {
             // Handle stop typing
             console.log(`User ${userId} stopped typing`);
             // You can remove the typing indicator here
+            setFriendStatus((pre: any) => ({ ...pre, isTypeing: false }));
+
         });
 
         // Cleanup on component unmount
@@ -61,6 +92,10 @@ const Chat = () => {
                 newSocket.emit("leave_conversation", currentFriend.conversationId);
             }
             newSocket.disconnect();
+            (async () => {
+
+                await userStatusChange({ userStatus: false })
+            })()
         };
     }, []);
 
@@ -89,7 +124,8 @@ const Chat = () => {
         const newSendedMessage: Message = {
             text: newMessage,
             sender: "You",
-            content: newMessage.trim()
+            content: newMessage.trim(),
+            sendingTime: new Date()
         };
 
         // Emit the message through socket
@@ -181,30 +217,45 @@ const Chat = () => {
                 <div className="overflow-y-auto">
                     {allFriends.map((friend: any) => (
                         <div
-                            key={friend.friendDetails._id}
                             className="p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-200"
                             onClick={() => handleOpenChat(friend)}
                         >
                             <div className="flex items-center">
-                                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white">
-                                    {friend.friendDetails?.profilePic ?
-                                        <img className="w-10 h-10 rounded-full" src={friend.friendDetails.profilePic} alt="Profile" />
-                                        : <User />
-                                    }
+                                <div
+                                    onClick={(e) => {
+                                        console.log("clicked");
+                                        e.stopPropagation();  // This prevents the event from bubbling up
+                                        e.preventDefault();
+                                        handleToggleProfileImge(friend.friendDetails?.profilePic);
+                                    }}
+                                    className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white">
+                                    {friend.friendDetails?.profilePic ? (
+                                        <img
+                                            className="w-10 h-10 rounded-full object-cover"
+                                            src={friend.friendDetails.profilePic}
+                                            alt="Profile"
+                                        />
+                                    ) : (
+                                        <User />
+                                    )}
                                 </div>
+
                                 <div className="ml-3 flex-1">
                                     <h3 className="font-semibold">{friend.friendDetails.fullName}</h3>
                                     <p className="text-sm text-gray-600">{friend.friendDetails.status}</p>
                                 </div>
-                                <div className="ml-3 flex items-center">
-                                    {friend.friendDetails.isOnline ? (
-                                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+
+                                <div className="flex items-center space-x-2">
+                                    {friendStatus.isTypeing ? (
+                                        <span className="text-sm text-gray-600">Typing...</span>
                                     ) : (
-                                        <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
+                                        <div className="flex items-center">
+                                            <div className={`w-2 h-2 rounded-full ${friend.friendDetails.isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+                                            <span className="ml-2 text-sm text-gray-600">
+                                                {friend.friendDetails.isOnline ? 'Online' : 'Offline'}
+                                            </span>
+                                        </div>
                                     )}
-                                    <span className="text-sm text-gray-600">
-                                        {friend.friendDetails.isOnline ? "Online" : "Offline"}
-                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -215,9 +266,34 @@ const Chat = () => {
             {/* Main Chat Area */}
             <div className="flex-1 flex flex-col">
                 {/* Chat Header */}
-                <div className="p-4 border-b border-gray-200 bg-white">
-                    <h2 className="text-xl font-bold">{currentFriend?.friendDetails?.fullName}</h2>
-                    <p className="text-sm text-gray-600">{currentFriend?.friendDetails?.isOnline ? "Online" : "Offline"}</p>
+                <div className="px-2 py-1 border-b border-gray-200 bg-white flex flex-row justify-between">
+                    <div>
+
+                        <h2 className="text-xl font-bold">{currentFriend?.friendDetails?.fullName}</h2>
+
+                        <p className="text-sm text-gray-600">
+                            {friendStatus?.isTypeing ? "Typing..." : (currentFriend?.friendDetails?.isOnline ? "Online" : "Offline")}
+                        </p>
+                    </div>
+                    <div className="flex flex-row items-center p-1 rounded-lg space-y-1">
+                        <Tooltip className="bg-[#dad8d8] rounded-xl" content="Make A Call Now" showArrow={true}>
+                            <button
+                                className="p-3 rounded-full bg-gray-50 hover:bg-gray-100 transition-colors group"
+                            >
+                                <Phone className="w-5 h-5 text-green-500 group-hover:scale-110 transition-transform" />
+                            </button>
+                        </Tooltip>
+                        <Tooltip className="bg-[#dad8d8] rounded-xl" content="See More About the Friend" showArrow={true}>
+
+                            <button
+                                className="p-3 rounded-full bg-gray-50 hover:bg-gray-100 transition-colors group"
+                            >
+                                <Ellipsis className="w-5 h-5 text-blue-500 group-hover:scale-110 transition-transform" />
+                            </button>
+                        </Tooltip>
+
+
+                    </div>
                 </div>
 
                 {/* Chat Messages */}
@@ -235,7 +311,7 @@ const Chat = () => {
                                     }`}
                             >
                                 <p>{message.text}</p>
-                                <p className="text-xs mt-1 text-gray-400">{message.time}</p>
+                                <p className="text-xs mt-1 text-gray-400">{formatTime(message.sendingTime)}</p>
                             </div>
                         </div>
                     ))}
@@ -260,7 +336,8 @@ const Chat = () => {
                     </form>
                 </div>
             </div>
-        </div>
+            <ProfileImageModal imageUrl={prifileImageModal.imageUrl} isOpen={prifileImageModal.isModalOpen} onOpenChange={() => handleToggleProfileImge("")} />
+        </div >
     );
 };
 

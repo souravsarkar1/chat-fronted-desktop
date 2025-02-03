@@ -3,6 +3,7 @@ import Chat from "../pages/chat/page/Chat";
 import Login from "../pages/Login";
 import Signup from "../pages/Signup";
 import { useAppSelector } from '../redux/store';
+import Home from "../pages/Home";
 
 // Define a type for the route configuration
 interface RouteConfig {
@@ -19,6 +20,7 @@ const Router = () => {
         { path: "/chat", component: Chat, private: true },
         { path: "/login", component: Login, private: false },
         { path: "/signup", component: Signup, private: false },
+        { path: "/dashboard", component: Home, private: false }
     ];
 
     return (

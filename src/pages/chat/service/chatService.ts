@@ -39,3 +39,14 @@ export const sendMessage = async (payload: any) => {
         throw error;
     }
 }
+
+
+export const userStatusChange = async (payload: any) => {
+    try {
+        const res = await axiosInstance.post("/user/status-change", payload);
+        return res.data;
+    } catch (error) {
+        console.log(error);
+        throw error;
+    }
+}
