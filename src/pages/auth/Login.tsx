@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
-// import { useDispatch } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
-import { loginFn } from "../redux/authReducer/action";
-import { useAppDispatch, useAppSelector } from "../redux/store";
+import { loginFn } from "../../redux/authReducer/action";
+import { useAppDispatch, useAppSelector } from "../../redux/store";
 import { Loader } from "lucide-react";
 
 const Login = () => {
@@ -56,9 +55,6 @@ const Login = () => {
         if (!formData.email.trim()) {
             newErrors.email = "Email is required";
             isValid = false;
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            newErrors.email = "Email is invalid";
-            isValid = false;
         }
 
         if (!formData.password.trim()) {
@@ -74,7 +70,13 @@ const Login = () => {
             return;
         }
 
-        dispatch(loginFn(formData) as any);
+        const payload = {
+            email: formData.email,
+            password: formData.password,
+            username: formData.email,
+        }
+
+        dispatch(loginFn(payload) as any);
     };
 
     return (
@@ -85,17 +87,17 @@ const Login = () => {
                     {/* Email Field */}
                     <div className="mb-4">
                         <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                            Email
+                            Email or User Name
                         </label>
                         <input
-                            type="email"
+                            type="text"
                             id="email"
                             name="email"
                             value={formData.email}
                             onChange={handleInputChange}
                             className={`mt-1 p-2 w-full border rounded-md ${errors.email ? "border-red-500" : "border-gray-300"
                                 }`}
-                            placeholder="Enter your email"
+                            placeholder="Enter your email or user name"
                         />
                         {errors.email && (
                             <p className="text-red-500 text-sm mt-1">{errors.email}</p>

@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { Ellipsis, MessageCircle, Phone, Search, Send, User, VideoIcon } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Ellipsis, MessageCircle, Phone, Search, Send, User } from "lucide-react";
 import { getAllChat, getAllFriend, sendMessage, userStatusChange } from "../service/chatService";
 import { useAppSelector } from "../../../redux/store";
 import { io } from "socket.io-client";
 import { formatTime } from "../helpers/timeformat";
 import ProfileImageModal from "../components/ImageModal";
-import { Button } from "@heroui/button";
 import { Tooltip } from "@heroui/react";
 
 interface Message {
@@ -19,6 +18,7 @@ interface Message {
 
 const Chat = () => {
     // Mock data for conversations and messages
+    const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const { user } = useAppSelector(st => st.auth);
     const [allFriends, setAllFriends] = useState([]);
@@ -193,7 +193,16 @@ const Chat = () => {
         })()
     }, [currentFriend])
 
+    const scrollToBottom = () => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight;
+        }
+    };
 
+    // Automatically scroll to the bottom when the component mounts or messages change
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
 
     return (
         <div className="flex h-screen bg-gray-100">
@@ -297,24 +306,26 @@ const Chat = () => {
                 </div>
 
                 {/* Chat Messages */}
-                <div className="flex-1 p-4 overflow-y-auto">
-                    {messages.length > 0 && messages?.map((message: any) => (
-                        <div
-                            key={message.id}
-                            className={`mb-4 ${message.sender === "You" ? "text-right" : "text-left"
-                                }`}
-                        >
+                <div className="flex-1 p-4 overflow-y-auto" ref={messagesEndRef}>
+                    {messages.length > 0 &&
+                        messages.map((message: any) => (
                             <div
-                                className={`inline-block p-3 rounded-lg ${message.sender === "You"
-                                    ? "bg-blue-500 text-white"
-                                    : "bg-gray-200 text-gray-800"
-                                    }`}
+                                key={message.id}
+                                className={`mb-4 ${message.sender === "You" ? "text-right" : "text-left"}`}
                             >
-                                <p>{message.text}</p>
-                                <p className="text-xs mt-1 text-gray-400">{formatTime(message.sendingTime)}</p>
+                                <div
+                                    className={`inline-block p-3 rounded-lg ${message.sender === "You"
+                                        ? "bg-blue-500 text-white"
+                                        : "bg-gray-200 text-gray-800"
+                                        }`}
+                                >
+                                    <p>{message.text}</p>
+                                    <p className="text-xs mt-1 text-gray-400">
+                                        {formatTime(message.sendingTime)}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
                 </div>
 
                 {/* Message Input Box */}

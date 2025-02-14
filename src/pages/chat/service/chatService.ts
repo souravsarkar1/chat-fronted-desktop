@@ -22,7 +22,7 @@ export const getAllUsers = async () => {
 
 export const getAllFriend = async () => {
     try {
-        const res = await axiosInstance.post(`/user/get-all-friend`);
+        const res = await axiosInstance.post(`/user/get-friend`);
         return res.data;
     } catch (error) {
         console.log(error);

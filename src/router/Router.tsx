@@ -1,9 +1,11 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import Chat from "../pages/chat/page/Chat";
-import Login from "../pages/Login";
-import Signup from "../pages/Signup";
+import Login from "../pages/auth/Login";
+import Signup from "../pages/auth/Signup";
 import { useAppSelector } from '../redux/store';
-import Home from "../pages/Home";
+import Home from "../pages/Dashboard/page/Home";
+import UserProfile from "../pages/profile/page/Profile";
+import NotificationModal from "../pages/profile/components/Notification";
 
 // Define a type for the route configuration
 interface RouteConfig {
@@ -20,7 +22,9 @@ const Router = () => {
         { path: "/chat", component: Chat, private: true },
         { path: "/login", component: Login, private: false },
         { path: "/signup", component: Signup, private: false },
-        { path: "/dashboard", component: Home, private: false }
+        { path: "/dashboard", component: Home, private: true },
+        { path: "/me", component: UserProfile, private: true },
+        { path: "/notification", component: NotificationModal, private: true }
     ];
 
     return (
