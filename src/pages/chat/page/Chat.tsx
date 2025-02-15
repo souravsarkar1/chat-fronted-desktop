@@ -17,14 +17,11 @@ interface Message {
 }
 
 const Chat = () => {
-    // Mock data for conversations and messages
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const { user } = useAppSelector(st => st.auth);
     const [allFriends, setAllFriends] = useState([]);
     const [messages, setMessages] = useState<Message[]>([]);
-    console.log(allFriends);
-
     const [newMessage, setNewMessage] = useState("");
     const [currentFriend, setCurrentFriend] = useState<any>({});
     const [socket, setSocket] = useState<any>(null);
@@ -32,24 +29,18 @@ const Chat = () => {
     const [prifileImageModal, setProfileImage] = useState({
         imageUrl: "",
         isModalOpen: false
-    })
+    });
+
+    const [typingStatus, setTypingStatus] = useState<{ [key: string]: boolean }>({}); // Track typing status for each friend
 
     const handleToggleProfileImge = (url: string) => {
-        interface ProfileImage {
-            imageUrl: string;
-            isModalOpen: boolean;
-        }
-
-        setProfileImage((prev: ProfileImage) => ({
+        setProfileImage((prev) => ({
             ...prev,
             imageUrl: url,
             isModalOpen: !prev.isModalOpen
         }));
-    }
+    };
 
-    const [friendStatus, setFriendStatus] = useState({
-        isTypeing: false,
-    })
     // Initialize socket connection
     useEffect(() => {
         const newSocket = io("http://localhost:3000", {
@@ -63,27 +54,34 @@ const Chat = () => {
         });
 
         newSocket.on("receive_message", (message: Message) => {
-            console.log(message);
-            setMessages((prevMessages: any) => [...prevMessages, {
-                text: message.content,
-                sender: "reciver",
-                sendingTime: message.sendingTime || new Date()
-            }]);
+            setMessages((prevMessages: any) => [
+                ...prevMessages,
+                {
+                    text: message.content,
+                    sender: "reciver",
+                    sendingTime: message.sendingTime || new Date()
+                }
+            ]);
         });
 
         newSocket.on("user_typing", (userId: string) => {
-            // Handle typing indicator
             console.log(`User ${userId} is typing...`);
-            // You can add a typing indicator state here
-            setFriendStatus((pre: any) => ({ ...pre, isTypeing: true }));
+            setTypingStatus((prev) => ({ ...prev, [userId]: true })); // Set typing status for the specific friend
         });
 
         newSocket.on("user_stop_typing", (userId: string) => {
-            // Handle stop typing
             console.log(`User ${userId} stopped typing`);
-            // You can remove the typing indicator here
-            setFriendStatus((pre: any) => ({ ...pre, isTypeing: false }));
+            setTypingStatus((prev) => ({ ...prev, [userId]: false })); // Clear typing status for the specific friend
+        });
 
+        newSocket.on("user_status_change", ({ userId, isOnline }) => {
+            setAllFriends((prevFriends: any) =>
+                prevFriends.map((friend: any) =>
+                    friend.friendDetails._id === userId
+                        ? { ...friend, friendDetails: { ...friend.friendDetails, isOnline } }
+                        : friend
+                )
+            );
         });
 
         // Cleanup on component unmount
@@ -93,9 +91,8 @@ const Chat = () => {
             }
             newSocket.disconnect();
             (async () => {
-
-                await userStatusChange({ userStatus: false })
-            })()
+                await userStatusChange({ userStatus: false });
+            })();
         };
     }, []);
 
@@ -164,34 +161,29 @@ const Chat = () => {
 
     const handleOpenChat = (data: any) => {
         setCurrentFriend(data);
-    }
+    };
 
     useEffect(() => {
         (async () => {
-            //    const chat =  await getAllChat(user?._id);
             const allFriend = await getAllFriend();
-
             setAllFriends(allFriend.friends);
+        })();
+    }, []);
 
-        })()
-    }, [])
     useEffect(() => {
         (async () => {
             if (Object.entries(currentFriend).length > 0) {
-
                 const res = await getAllChat({ conversationId: currentFriend?.conversationId });
-
                 const updatedMessages = res.data.map((item: any) => {
                     if (item.sender === user?._id) {
-                        item["sender"] = "You"
+                        item["sender"] = "You";
                     }
-                    return item
-                })
-
-                setMessages(updatedMessages)
+                    return item;
+                });
+                setMessages(updatedMessages);
             }
-        })()
-    }, [currentFriend])
+        })();
+    }, [currentFriend]);
 
     const scrollToBottom = () => {
         if (messagesEndRef.current) {
@@ -199,7 +191,6 @@ const Chat = () => {
         }
     };
 
-    // Automatically scroll to the bottom when the component mounts or messages change
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
@@ -226,18 +217,19 @@ const Chat = () => {
                 <div className="overflow-y-auto">
                     {allFriends.map((friend: any) => (
                         <div
+                            key={friend.friendDetails._id}
                             className="p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-200"
                             onClick={() => handleOpenChat(friend)}
                         >
                             <div className="flex items-center">
                                 <div
                                     onClick={(e) => {
-                                        console.log("clicked");
-                                        e.stopPropagation();  // This prevents the event from bubbling up
+                                        e.stopPropagation();
                                         e.preventDefault();
                                         handleToggleProfileImge(friend.friendDetails?.profilePic);
                                     }}
-                                    className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white">
+                                    className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white"
+                                >
                                     {friend.friendDetails?.profilePic ? (
                                         <img
                                             className="w-10 h-10 rounded-full object-cover"
@@ -255,7 +247,7 @@ const Chat = () => {
                                 </div>
 
                                 <div className="flex items-center space-x-2">
-                                    {friendStatus.isTypeing ? (
+                                    {typingStatus[friend.friendDetails._id] ? ( // Show typing status for the specific friend
                                         <span className="text-sm text-gray-600">Typing...</span>
                                     ) : (
                                         <div className="flex items-center">
@@ -277,31 +269,22 @@ const Chat = () => {
                 {/* Chat Header */}
                 <div className="px-2 py-1 border-b border-gray-200 bg-white flex flex-row justify-between">
                     <div>
-
                         <h2 className="text-xl font-bold">{currentFriend?.friendDetails?.fullName}</h2>
-
                         <p className="text-sm text-gray-600">
-                            {friendStatus?.isTypeing ? "Typing..." : (currentFriend?.friendDetails?.isOnline ? "Online" : "Offline")}
+                            {typingStatus[currentFriend?.friendDetails?._id] ? "Typing..." : (currentFriend?.friendDetails?.isOnline ? "Online" : "Offline")}
                         </p>
                     </div>
                     <div className="flex flex-row items-center p-1 rounded-lg space-y-1">
                         <Tooltip className="bg-[#dad8d8] rounded-xl" content="Make A Call Now" showArrow={true}>
-                            <button
-                                className="p-3 rounded-full bg-gray-50 hover:bg-gray-100 transition-colors group"
-                            >
+                            <button className="p-3 rounded-full bg-gray-50 hover:bg-gray-100 transition-colors group">
                                 <Phone className="w-5 h-5 text-green-500 group-hover:scale-110 transition-transform" />
                             </button>
                         </Tooltip>
                         <Tooltip className="bg-[#dad8d8] rounded-xl" content="See More About the Friend" showArrow={true}>
-
-                            <button
-                                className="p-3 rounded-full bg-gray-50 hover:bg-gray-100 transition-colors group"
-                            >
+                            <button className="p-3 rounded-full bg-gray-50 hover:bg-gray-100 transition-colors group">
                                 <Ellipsis className="w-5 h-5 text-blue-500 group-hover:scale-110 transition-transform" />
                             </button>
                         </Tooltip>
-
-
                     </div>
                 </div>
 
@@ -348,7 +331,7 @@ const Chat = () => {
                 </div>
             </div>
             <ProfileImageModal imageUrl={prifileImageModal.imageUrl} isOpen={prifileImageModal.isModalOpen} onOpenChange={() => handleToggleProfileImge("")} />
-        </div >
+        </div>
     );
 };
 
